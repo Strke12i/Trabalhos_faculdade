@@ -4,8 +4,10 @@ buffer:		.space	4084
 Palavra:	.space	100
 Chutes: 	.space 26
 Escreva_char: 	.asciiz "Digite uma letra minuscula?"
+Letra_ja_digitada:	.asciiz "Essa letra já foi digitada! Digite outra vez"
 Tentativas: 	.word 0
 Numero_de_linhas: .word 50
+
 
 mastro1:	.asciiz " _______    "
 mastro2:	.asciiz "|/      |  "
@@ -18,18 +20,21 @@ perna1:		.asciiz "|      /    "
 perna2:		.asciiz "|      / \\  "
 base1:		.asciiz "|_____________"
 
+voce_ganhou:	.asciiz "Voce ganhou!"
+voce_perdeu:	.asciiz "Voce Perdeu!"
+
 .text
 
+.eqv        SERVICO_IMPRIME_INTEIRO     1
+.eqv        SERVICO_IMPRIME_STRING      4
+.eqv        SERVICO_IMPRIME_CARACTERE   11
+.eqv        SERVICO_TERMINA_PROGRAMA    17
+.eqv        SUCESSO                     0
 
-.globl main
 
 init:
-	j main
-	
-finit:
-            move  $a0, $v0      # o valor de retorno de main Ã© colocado em $a0
-            li    $v0, 17       # serviÃ§o 17: termina o programa
-            syscall 
+	j Jogo
+	     
 
 ### Função Abrir Arquivo	
 abrir_arquivo:
@@ -54,16 +59,11 @@ abrir_arquivo:
 	
 #retorna numero aleatorio
 retorna_numero_aleatório:
-	addi $sp,$sp,-8
-	sw $ra, 4($sp)
 	lw $a1, Numero_de_linhas
 	li $a0, 0
 	li $v0, 42
 	syscall 
-	sw $a0, 0($sp)
-	lw $v0, 0($sp)
-	lw $ra, 4($sp)
-	addi $sp,$sp, 8
+	add $v0,$zero,$a0
 	jr $ra
 	
 ### Função que vai retornar a posiçao da palavra sorteada no arquivo	
@@ -167,12 +167,12 @@ fim_preenche:
 #}
 #
 ler_caracter:
-	addi  $sp, $sp, -4
+	addi  $sp, $sp, -8
+	sw $ra, 0($sp)
 
 loop_char:
-	li $t0, '\n'
 	li $v0, 11
-	la $a0, 0($t0)
+	li $a0, 10
 	syscall
 pede_char:
 	li $v0, 4
@@ -181,8 +181,8 @@ pede_char:
 	li   $v0, 12       
   	syscall           
   	add $a0, $v0, $zero
-  	sw $a0, 0($sp)
-  	lw $t1, 0($sp)
+  	sw $a0, 4($sp)
+  	lw $t1, 4($sp)
 
 char_valido:
 	li $t2,123
@@ -191,8 +191,9 @@ char_valido:
 	ble $t1,$t3,loop_char
 
 fim_ler_caracter:
-	lw   $v0, 0($sp)   
-        addi $sp, $sp, 4   
+	lw   $v0, 4($sp)  
+	lw $ra, 0($sp) 
+        addi $sp, $sp, 8   
         jr   $ra
         
         
@@ -213,8 +214,8 @@ verifica_char_na_Palavra:
 	sw $a1,4($sp) 
 	sw $ra,8($sp)
 	lw $t1, 4($sp) # char recebido 
-	xor $t2,$t2,$t2 # var i
-	xor $t3,$t3,$t3 # contador de vezes na palavra
+	li $t2 , 0 # var i
+	li $t3, 0 # contador de vezes na palavra
 	j percorre_palavra
 
 incrementa_var_i:
@@ -292,7 +293,7 @@ verifica_se_ganhou:
 	sw $a0, 0($sp)
 	sw $ra, 4($sp)
 	lw $t0, 0($sp) # carrega tamanho_da palavra
-	xor $t1,$t1,$t1 # contador i
+	li $t1, 0 # contador i
 	j while_verifica_se_ganhou
 
 incrementa_i_verifica_se_ganhou:
@@ -317,7 +318,7 @@ fim_verifica_se_ganhou:
 	sw $t2,0($sp)
 	lw $v0,0($sp)
 	lw $ra, 4($sp)
-	addi $sp,$sp,8
+	addi $sp,$sp,16
 	jr $ra
 
 
@@ -414,10 +415,9 @@ fim_print_forca:
 #	printf("\n");
 #}
 printa_palavra:
-	addi $sp,$sp,-8
+	addi $sp,$sp,-4
 	sw $ra,0($sp)
-	sw $a0,4($sp)
-	lw $t0, 4($sp)
+	add $t0, $zero, $a0
 	li $t1, 0 # Contador i = 0
 	j while_percorre_palavra_printa_palavra
 
@@ -449,18 +449,19 @@ printa_caracter_printa_palavra:
 	li $v0, 11
 	add $a0, $zero, $t2
 	syscall
+	li $v0, 11
+	li $a0, ' '
+	syscall
 	j incrementa_i_printa_palavra
 
 fim_printa_palavra:	
-	li $v0, 11
-	add $a0, $zero, 10
-	syscall
+	jal Print_endline
 	lw $ra, 0($sp)
-	addi $sp,$sp,8
+	addi $sp,$sp,4
 	jr $ra
 
 
-#void adiciona_nos_chutes(char letra){
+#void adiciona_letra_nos_chutes(char letra){
 #	Chutes[Tentativas] = letra;
 #	Tentativas++;
 #}
@@ -488,15 +489,13 @@ adiciona_letra_nos_chutes:
 #	return preencher_palavra(posicao_buffer);
 #}
 Sorteia_Palavra:
-	addi $sp, $sp, -8
+	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal abrir_arquivo
 	jal retorna_numero_aleatório
-	sw $v0, 4($sp)
-	lw $a0, 4($sp)
+	add $a0, $zero,$v0
 	jal retorna_posicao_do_sorteado
-	sw $v0, 4($sp)
-	lw $a0, 4($sp)
+	add $a0, $zero,$v0
 	jal preencher_palavra
 	lw $ra, 0($sp)
 	jr $ra
@@ -511,7 +510,7 @@ Sorteia_Palavra:
 #		printa_palavra(tamanho_palavra);
 #		char letra = ler_caracter();
 #		if(verifica_se_letra_ja_foi_usada) // tratar erro
-#		adicionar_letra_nos chutes(letras);
+#		adicionar_letra_nos chutes(letra);
 #		if(!verifica_char_na_Palavra) vidas--;
 #		if(verifica_se_ganhou){
 #			ganhou();
@@ -522,80 +521,107 @@ Sorteia_Palavra:
 #}
 #
 
+Print_endline:
+	li $a0, 10
+	li $v0, 11
+	syscall
+	jr $ra
+
 Jogo:
-	addi $sp, $sp, -
+	addi $sp,$sp, -16
 	sw $ra, 0($sp)
-	li $t0, 6
-	sw $t0, 4($sp) # contador de vidas
+	jal Sorteia_Palavra
+	
+	sw $v0, 4($sp)
+	lw $t0, 4($sp) # Tamanho da Palavra
+	
+	li $t1, 6 #Vidas
+	sw $t1, 8($sp)
+	
+	la $a0,Palavra
+	li $v0, 4
+	syscall
+	jal Print_endline
+	
 while_Jogo:
-	beqz $t0, fim_Jogo
+	nop
+	
+printa_Jogo:
+	lw $t1, 8($sp)
+	beqz $t1, perdeu_Jogo # Se vidas == 0 acaba o jogo
+	add $a0, $zero ,$t1 # Passa como paramentro
+	jal printa_forca 
+	lw $t0, 4($sp)
+	add $a0, $zero ,$t0
+	jal printa_palavra  #printa_forca(tamanho_palavra)
+	j Caracter_Jogo
+
+letra_ja_foi_usada_Jogo:
+	jal Print_endline
+	la $a0, Letra_ja_digitada
+	li $v0, 4
+	syscall
+	jal Print_endline
+		
+Caracter_Jogo:
+	jal ler_caracter
+	add $t2, $zero ,$v0 # $t2 recebe o char que volta de ler_caracter
+	add $a0, $zero ,$t2
+	sw $t2, 12($sp)
+	jal verifica_se_letra_ja_foi_usada
+	add $t3, $zero ,$v0
+	bgtz $t3, letra_ja_foi_usada_Jogo
+
+Vida_Jogo:
+	jal Print_endline
+	lw $t2, 12($sp)
+	add $a0, $zero ,$t2
+	jal adiciona_letra_nos_chutes
+	lw $t0, 4($sp)
+	add $a0, $zero ,$t0
+	lw $t2, 12($sp)
+	add $a1, $zero ,$t2
+	jal verifica_char_na_Palavra
+	add $t3, $zero ,$v0
+	beqz $t3,dimunui_vida_Jogo
+	
+Verifica_se_completou_Jogo:
+	lw $t0, 4($sp)
+	add $a0, $zero ,$t0
+	jal verifica_se_ganhou # retorna 1 se ganhou 0 se não 
+	add $t3, $zero ,$v0
+	bgtz $t3, ganhou_Jogo
+	j while_Jogo
+
+perdeu_Jogo:
+	la $a0, voce_perdeu
+	li $v0, 4
+	syscall
+	j fim_Jogo
+
+ganhou_Jogo:
+	la $a0, voce_ganhou
+	li $v0, 4
+	syscall
+	j fim_Jogo
+	
+dimunui_vida_Jogo:
+	lw $t1,8($sp)
+	subi $t1,$t1,1
+	sw $t1,8($sp)
+	j while_Jogo
 	
 fim_Jogo:
-
-main:
+	jal Print_endline
+	lw $t1,8($sp)
+	add $a0, $zero ,$t1 # Passa como paramentro
+	jal printa_forca 
+	lw $t0, 4($sp)
+	add $a0, $zero ,$t0
+	jal printa_palavra  #printa_forca(tamanho_palavra)
 	
-
-	#addi $sp, $sp, -4 
-	#addi $a0,$zero, 6
-	#jal printa_palavra
-	#jal Sorteia_Palavra
-	#li $a0, '"'
-	#li $v0, 11
-	#syscall 
-	#la $a0, Palavra
-	#li $v0, 4
-	#syscall 
-	#li $a0, '"'
-	#li $v0, 11
-	#syscall 
-	#li $a0, 0
-	#jal printa_forca
-#	jal Sorteia_Palavra
-#	sw $v0, 0($sp)
-#	lw $a0, 0($sp)
-#	li $v0, 1
-	
-	#jal retorna_numero_aleatório
-	#sw $v0, 0($sp)
-	#lw $a0, 0($sp)
-	#li $v0, 1
-	#syscall
-	
-	#li $a0, 5
-	#jal verifica_se_ganhou
-	#sw $v0, 0($sp)
-	#lw $a0, 0($sp)
-	#li $v0, 1
-	#syscall
-	
-	#jal verifica_se_letra_ja_foi_usada
-	#sw $v0,0($sp)
-	#lw $a0,0($sp)
-	#li $v0, 1
-	#syscall
-	#jal ler_caracter
-	#sw $v0,0($sp)
-	#li $v0, 11
-	#lw $a0,0($sp)
-	#syscall
-	#jal abrir_arquivo
-	#li $a0,8
-	#jal retorna_posicao_do_sorteador
-	#sw $v0,0($sp)
-	#lw $a0, 0($sp)
-	#jal preencher_palavra
-	#sw $v0,0($sp)
-	#li $v0, 1
-	#lw $a0, 0($sp)
-	#syscall
-	#li $v0, 4
-	#la $a0, Palavra
-	#syscall
-	#lw $a0,0($sp)
-	#li $a1, 'i'
-	#jal verifica_char_na_Palavra
-	#sw $v0,0($sp)
-	#li $v0, 1
-	#lw $a0, 0($sp)
-	#syscall
+	addi $sp,$sp, 16
+	addiu $v0, $zero, SERVICO_TERMINA_PROGRAMA # serviÃ§o 17 - tÃ©rmino do programa: exit2
+        addiu $a0, $zero, SUCESSO # resultado da execuÃ§Ã£o do programa, 0: sucesso
+        syscall
 	
