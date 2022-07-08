@@ -36,19 +36,21 @@ base1:		.asciiz "|_____________"
 
 voce_ganhou:	.asciiz "Voce ganhou!"
 voce_perdeu:	.asciiz "Voce Perdeu!"
+continuar_jogando:	.asciiz "Para continuar jogando: digite y \nPara parar: aperta qualquer outra tecla ->"
 
 .text
 
 .eqv        SERVICO_IMPRIME_INTEIRO     1
 .eqv        SERVICO_IMPRIME_STRING      4
 .eqv        SERVICO_IMPRIME_CARACTERE   11
+.eqv	    SERVICO_LER_CARACTER	12
 .eqv        SERVICO_OPEN_FILE    	13
 .eqv        SERVICO_READ_FILE    	14
 .eqv        SERVICO_CLOSE_FILE    	16
 .eqv        SERVICO_TERMINA_PROGRAMA    17
 .eqv        SERVICO_NUMERO_ALEATORIO    42
 .eqv        SUCESSO                     0
-
+.eqv	    CARACTER_ENDLINE		10
 
 init:
 	j Jogo
@@ -56,7 +58,7 @@ init:
 
 ### Função Abrir Arquivo	
 abrir_arquivo:
-	li $v0, SERVICO_OPEN_FILE  
+	li $v0, SERVICO_OPEN_FILE   
 	la $a0, nome
 	li $a1, 0
 	syscall 
@@ -66,7 +68,7 @@ abrir_arquivo:
 	move $a0, $t0
 	
 	la $a1, buffer
-	la $a2, 4084
+	lw $a2, tamanho_buffer
 	syscall
 	
 	li $v0,SERVICO_CLOSE_FILE  
@@ -113,7 +115,7 @@ fim_linhas_arquivo:
 	jr $ra
 			
 #retorna numero aleatorio
-retorna_numero_aleatório:
+retorna_numero_aleatorio:
 	li $a0, 0
 	lw $a1, Numero_de_linhas
 	li $v0, SERVICO_NUMERO_ALEATORIO 
@@ -204,9 +206,12 @@ salva_na_palavra:
 	
 fim_preenche:
 	sw $t1,0($sp)
+	li $t2, '\0'
+	addi $t1,$t1,1
+	sb $t2,Palavra($t1)
 	lw $ra, 4($sp)
-	lw   $v0, 0($sp)    # valor de retorno Ã© igual a menor
-        addi $sp, $sp, 8    # restauramos a pilha
+	lw   $v0, 0($sp)    
+        addi $sp, $sp, 8   
         jr   $ra
 			
 
@@ -543,7 +548,7 @@ adiciona_letra_nos_chutes:
 #Cuida de pegar a palavra do arquivo
 #void Sorteia_Palavra(){
 #	abrir_arquivo();
-#	int linha_sorteada = retorna_numero_aleatório();
+#	int linha_sorteada = retorna_numero_aleatorio();
 #	int posicao_no_buffer = retorna_posicao_do_sorteado(linha_sorteada);
 #	return preencher_palavra(posicao_buffer);
 #}
@@ -552,7 +557,7 @@ Sorteia_Palavra:
 	sw $ra, 0($sp)
 	jal abrir_arquivo
 	jal le_quantidade_de_linhas_arquivo
-	jal retorna_numero_aleatório
+	jal retorna_numero_aleatorio
 	add $a0, $zero,$v0
 	jal retorna_posicao_do_sorteado
 	add $a0, $zero,$v0
@@ -574,18 +579,50 @@ Sorteia_Palavra:
 #		if(!verifica_char_na_Palavra) vidas--;
 #		if(verifica_se_ganhou){
 #			ganhou();
-#			return;	
+#			return;
 #		}
 #	}
 #	perdeu();
 #}
 #
 
+#zerar variaveis globais
+#void zerar_variaveis(){
+#	int i = 0;
+#	while(i != Tentativas){
+#		Chutes[i] = '\0';
+#	}
+#	Tentativas = 0;
+#}
+Zerar_variaveis:
+	addi $sp,$sp, -4
+	sw $ra, 0($sp)
+	li $t0, 0
+	lw $t1, Tentativas
+	j while_i_Zerar_variaveis
+	
+incrementa_i_Zerar_variaveis:
+	addi $t0,$t0,1
 
+while_i_Zerar_variaveis:
+	beq $t0,$t1, fim_Zerar_Variaveis
+	li $t2, '\0'
+	sb $t2, Chutes($t0)
+	j incrementa_i_Zerar_variaveis
+
+fim_Zerar_Variaveis:	
+	li $t0, 0
+	sw $t0, Tentativas
+	lw $ra, 0($sp)
+	addi $sp,$sp, 4
+	jr $ra
 
 Jogo:
 	addi $sp,$sp, -16
 	sw $ra, 0($sp)
+	
+	jal Zerar_variaveis
+	
 	jal Sorteia_Palavra
 	
 	sw $v0, 4($sp)
@@ -676,6 +713,18 @@ fim_Jogo:
 	lw $t0, 4($sp)
 	add $a0, $zero ,$t0
 	jal printa_palavra  #printa_forca(tamanho_palavra)
+
+continuar_Jogo:
+	la $a0, continuar_jogando
+	li $v0, SERVICO_IMPRIME_STRING
+	syscall
+	li   $v0, SERVICO_LER_CARACTER       
+  	syscall
+  	li $t0, 'y'
+  	add $t1, $zero, $v0
+  	beq $t1, $t0, Jogo
+  	           
+encerra_jogo:
 	
 	addi $sp,$sp, 16
 	addiu $v0, $zero, SERVICO_TERMINA_PROGRAMA # serviÃ§o 17 - tÃ©rmino do programa: exit2
