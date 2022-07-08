@@ -1,12 +1,26 @@
 .data
 nome:		.asciiz "D:/SistInf/Org/teste.txt"
 buffer:		.space	4084
+tamanho_buffer:	.word   4084
 Palavra:	.space	100
 Chutes: 	.space 26
 Escreva_char: 	.asciiz "Digite uma letra minuscula?"
 Letra_ja_digitada:	.asciiz "Essa letra já foi digitada! Digite outra vez"
 Tentativas: 	.word 0
-Numero_de_linhas: .word 50
+Numero_de_linhas: .word 0
+
+
+#  o              o                                     o__ __o                                o                            o   
+# <|>            <|>                                   <|     v\                              <|>                          <|>  
+# < >            < >                                   / \     <\                             < \                          / \  
+#  \o            o/ o__ __o       __o__   o__  __o     \o/     o/  o__  __o  \o__ __o    o__ __o/   o__  __o   o       o   \o/  
+#   v\          /v /v     v\     />  \   /v      |>     |__  _<|/ /v      |>  |     |>  /v     |   /v      |> <|>     <|>   |   
+#    <\        /> />       <\  o/       />      //      |        />      //  / \   < > />     / \ />      //  < >     < >  < >  
+#      \o    o/   \         / <|        \o    o/       <o>       \o    o/    \o/       \      \o/ \o    o/     |       |        
+#       v\  /v     o       o   \\        v\  /v __o     |         v\  /v __o  |         o      |   v\  /v __o  o       o    o           <\/>      <\__ __/>    _\o__</   <\/> __/>    / \         <\/> __/> / \        <\__  / \   <\/> __/>  <\__ __/>  _<|>_ 
+                                                                                                                               
+                                                                                                                                                                                                                                     
+
 
 
 mastro1:	.asciiz " _______    "
@@ -28,7 +42,11 @@ voce_perdeu:	.asciiz "Voce Perdeu!"
 .eqv        SERVICO_IMPRIME_INTEIRO     1
 .eqv        SERVICO_IMPRIME_STRING      4
 .eqv        SERVICO_IMPRIME_CARACTERE   11
+.eqv        SERVICO_OPEN_FILE    	13
+.eqv        SERVICO_READ_FILE    	14
+.eqv        SERVICO_CLOSE_FILE    	16
 .eqv        SERVICO_TERMINA_PROGRAMA    17
+.eqv        SERVICO_NUMERO_ALEATORIO    42
 .eqv        SUCESSO                     0
 
 
@@ -38,30 +56,67 @@ init:
 
 ### Função Abrir Arquivo	
 abrir_arquivo:
-	li $v0, 13
+	li $v0, SERVICO_OPEN_FILE  
 	la $a0, nome
 	li $a1, 0
 	syscall 
 	move $t0,$v0
 	
-	li $v0,14
+	li $v0,SERVICO_READ_FILE  
 	move $a0, $t0
 	
 	la $a1, buffer
 	la $a2, 4084
 	syscall
 	
-	li $v0,16
+	li $v0,SERVICO_CLOSE_FILE  
 	move $a0, $t0
 	syscall
 	
 	jr $ra
 	
+#void le_quantidade_de_linhas_arquivo(){
+#	int i = 0;
+#	int contador_endline = 0;
+#	while( i < 4084){
+#		if(buffer[i] == '\0') break;
+#		if(buffer[i] == '\n') contador_endline++;
+#	}
+#	contador_endline--;
+#	Numero_de_linhas = contador_endline;
+#}
+#
+le_quantidade_de_linhas_arquivo:
+	li $t0, 0 # int i = 0
+	li $t1, 0 # contador_endline = 0
+	li $t2, '\n'
+	lw $t3, tamanho_buffer	
+	
+incrementa_contador_endline_linhas_arquivo:
+	addi $t1, $t1, 1
+
+incrementa_i_linhas_arquivo:
+	addi $t0,$t0, 1
+
+while_linhas_arquivo:
+	beq $t0, $t3, fim_linhas_arquivo
+	lb $t4, buffer($t0)
+	beqz $t4, fim_linhas_arquivo
+	
+if_linhas_arquivo:
+	beq $t4, $t2, incrementa_contador_endline_linhas_arquivo
+	j incrementa_i_linhas_arquivo
+	
+fim_linhas_arquivo:
+	addi $t1,$t1,-1
+	sw $t1, Numero_de_linhas
+	jr $ra
+			
 #retorna numero aleatorio
 retorna_numero_aleatório:
-	lw $a1, Numero_de_linhas
 	li $a0, 0
-	li $v0, 42
+	lw $a1, Numero_de_linhas
+	li $v0, SERVICO_NUMERO_ALEATORIO 
 	syscall 
 	add $v0,$zero,$a0
 	jr $ra
@@ -321,7 +376,11 @@ fim_verifica_se_ganhou:
 	addi $sp,$sp,16
 	jr $ra
 
-
+Print_endline:
+	li $a0, 10
+	li $v0, 11
+	syscall
+	jr $ra
 
 printf:
 	li $v0, 4
@@ -492,6 +551,7 @@ Sorteia_Palavra:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
 	jal abrir_arquivo
+	jal le_quantidade_de_linhas_arquivo
 	jal retorna_numero_aleatório
 	add $a0, $zero,$v0
 	jal retorna_posicao_do_sorteado
@@ -521,11 +581,7 @@ Sorteia_Palavra:
 #}
 #
 
-Print_endline:
-	li $a0, 10
-	li $v0, 11
-	syscall
-	jr $ra
+
 
 Jogo:
 	addi $sp,$sp, -16
@@ -538,8 +594,9 @@ Jogo:
 	li $t1, 6 #Vidas
 	sw $t1, 8($sp)
 	
+	# TODO:Retirar 
 	la $a0,Palavra
-	li $v0, 4
+	li $v0, SERVICO_IMPRIME_STRING
 	syscall
 	jal Print_endline
 	
