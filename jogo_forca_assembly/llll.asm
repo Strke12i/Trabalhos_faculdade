@@ -10,7 +10,7 @@ Tentativas: 	.word 0
 Numero_de_linhas: .word 0
 
 
-#  o              o                                     o__ __o                                o                            o   
+
 # <|>            <|>                                   <|     v\                              <|>                          <|>  
 # < >            < >                                   / \     <\                             < \                          / \  
 #  \o            o/ o__ __o       __o__   o__  __o     \o/     o/  o__  __o  \o__ __o    o__ __o/   o__  __o   o       o   \o/  
